@@ -347,3 +347,6 @@ healthchecksdb
 /env
 /media
 /freezeit.py
+result
+result-*
+.direnv/
