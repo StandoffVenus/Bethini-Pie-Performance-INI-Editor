@@ -10,6 +10,7 @@ if __name__ == "__main__":
     sys.exit(1)
 
 from lib.customFunctions import set_titlebar_style, set_theme
+from lib.platform_support import ui_font
 
 logger = logging.getLogger(__name__)
 
@@ -36,24 +37,24 @@ class ChooseGameWindow(ttk.Toplevel):
         choose_game_frame_2 = ttk.Frame(choose_game_frame)
 
         label_Bethini = ttk.Label(
-            choose_game_frame_2, text="Bethini Pie", font=("Segoe UI", 20))
+            choose_game_frame_2, text="Bethini Pie", font=ui_font(20))
         label_Pie = ttk.Label(
             choose_game_frame_2,
             text="Performance INI Editor\nby DoubleYou",
-            font=("Segoe UI", 15),
+            font=ui_font(15),
             justify=CENTER,
             style=WARNING,
         )
         label_link = ttk.Label(
             choose_game_frame_2,
             text="www.nexusmods.com/site/mods/631",
-            font=("Segoe UI", 10),
+            font=ui_font(10),
             cursor="hand2",
             style=INFO,
         )
 
         choose_game_label = ttk.Label(
-            choose_game_frame_2, text="Choose Game", font=("Segoe UI", 15))
+            choose_game_frame_2, text="Choose Game", font=ui_font(15))
 
         self.choose_game_tree = ttk.Treeview(
             choose_game_frame_2, selectmode=BROWSE, show="tree", columns=("Name"))
@@ -61,7 +62,7 @@ class ChooseGameWindow(ttk.Toplevel):
         self.choose_game_tree.column("Name", anchor=W, width=300)
 
         self.master.style_override.configure(
-            "choose_game_button.TButton", font=("Segoe UI", 14),
+            "choose_game_button.TButton", font=ui_font(14),
             background=STANDARD_THEMES[master.theme_name.get()]["colors"].get("inputbg"),
             foreground=STANDARD_THEMES[master.theme_name.get()]["colors"].get("inputfg"))
         choose_game_button = ttk.Button(
@@ -74,7 +75,7 @@ class ChooseGameWindow(ttk.Toplevel):
         choose_game_tip = ttk.Label(
             choose_game_frame_2,
             text="Tip: You can change the game at any time\nby going to File > Choose Game.",
-            font=("Segoe UI", 12),
+            font=ui_font(12),
             justify=CENTER,
             style="success",
         )
@@ -120,6 +121,6 @@ class ChooseGameWindow(ttk.Toplevel):
     def set_theme(self) -> None:
         set_theme(self.master.style_override, self.master.theme_name.get())
         self.master.style_override.configure(
-            "choose_game_button.TButton", font=("Segoe UI", 14),
+            "choose_game_button.TButton", font=ui_font(14),
             background=STANDARD_THEMES[self.master.theme_name.get()]["colors"].get("inputbg"),
             foreground=STANDARD_THEMES[self.master.theme_name.get()]["colors"].get("inputfg"))

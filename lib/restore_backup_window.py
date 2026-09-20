@@ -5,7 +5,7 @@ import shutil
 import os
 
 from pathlib import Path
-from stat import S_IWRITE, S_IREAD
+from lib.platform_support import clear_write_protect, restore_file_mode
 from ttkbootstrap.constants import *
 from ttkbootstrap.dialogs import Messagebox
 from lib.simple_dialog_windows import AskQuestionWindow
@@ -166,14 +166,14 @@ class RestoreBackupWindow(ttk.Toplevel):
                 self.master.wait_window(change_read_only)
                 if change_read_only.result:
                     try:
-                        os.chmod(original_file, S_IWRITE)
+                        previous_mode = clear_write_protect(original_file)
                         shutil.copyfile(backup_file, original_file)
                         msg = f"Restoring backup {backup_file} to {original_file} was successful."
                         Messagebox.show_info(parent=self, title="Successfully restored backup",
                                              message=f"Restoring backup {backup_file} to {original_file} was successful.")
                         logger.info(msg)
                         self.result = True
-                        os.chmod(original_file, S_IREAD)
+                        restore_file_mode(original_file, previous_mode)
                     except PermissionError as e:
                         logger.exception(
                             f"{original_file} was still not able to be modified after clearing the read-only flag.")

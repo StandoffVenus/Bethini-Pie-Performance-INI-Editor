@@ -29,6 +29,7 @@
     <Compile Include="lib\customFunctions.py" />
     <Compile Include="lib\menu_bar.py" />
     <Compile Include="lib\ModifyINI.py" />
+    <Compile Include="lib\platform_support.py" />
     <Compile Include="lib\preferences.py" />
     <Compile Include="lib\restore_backup_window.py" />
     <Compile Include="lib\save_changes_dialog.py" />

@@ -15,6 +15,7 @@ if __name__ == "__main__":
     sys.exit(1)
 
 from lib.customConfigParser import customConfigParser
+from lib.platform_support import application_directory
 from lib.type_helpers import *
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class ModifyINI:
 
         if not ModifyINI._open_app_config:
             ModifyINI._open_app_config = ModifyINI.open(
-                name=ModifyINI.app_config_name, location=Path.cwd(), sortable=True)
+                name=ModifyINI.app_config_name, location=application_directory(), sortable=True)
         return ModifyINI._open_app_config
 
     @staticmethod
