@@ -4,149 +4,56 @@ on:
   push:
     branches:
       - release
+  workflow_dispatch:
 
 jobs:
-  pyinstaller-build-linux:
-    runs-on: ubuntu-latest
+  pyinstaller-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: Bethini-linux
+          - os: macos-latest
+            artifact: Bethini-darwin
+          - os: windows-latest
+            artifact: Bethini-windows
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4.2.2
-    
-    - name: Setup Python
-      uses: actions/setup-python@v5.4.0
-      with:
-        python-version: '3.11.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: Install PyInstaller
-      run: pip install pyinstaller
-    
-    - name: Build with PyInstaller
-      run: pyinstaller bethini_onefile.spec
-    
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v4.6.1
-      with:
-        name: Bethini-linux
-        path: dist
-        
-  pyinstaller-build-windows:
-    runs-on: windows-latest
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          submodules: recursive
 
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4.2.2
-    
-    - name: Setup Python
-      uses: actions/setup-python@v5.4.0
-      with:
-        python-version: '3.11.9'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: Install PyInstaller
-      run: pip install pyinstaller
-    
-    - name: Build with PyInstaller
-      run: pyinstaller bethini_onefile.spec
+      - name: Install Linux GUI libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            tcl tk tcl-dev tk-dev \
+            libx11-dev libxext-dev libxrender-dev libxft-dev libxss-dev
 
-    - name: Copy additional files
-      shell: powershell
-      run: |
-        $workspace = $env:GITHUB_WORKSPACE
+      - name: Setup Python
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: "3.11"
 
-        # Copy top level files
-        $src = Join-Path $workspace 'LICENSE.txt'
-        $dst = Join-Path $workspace 'dist\LICENSE.txt'
-        Copy-Item -LiteralPath $src -Destination $dst -Force
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
 
-        $src = Join-Path $workspace 'README.md'
-        $dst = Join-Path $workspace 'dist\README.md'
-        Copy-Item -LiteralPath $src -Destination $dst -Force
+      - name: Build with PyInstaller
+        run: pyinstaller bethini_onefile.spec
 
-        $src = Join-Path $workspace 'changelog.txt'
-        $dst = Join-Path $workspace 'dist\changelog.txt'
-        Copy-Item -LiteralPath $src -Destination $dst -Force
+      - name: Copy additional files
+        run: python .github/scripts/copy_dist_files.py
 
-        # Icons and fonts
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\icons') -Force | Out-Null
-        xcopy /e /i (Join-Path $workspace 'icons') (Join-Path $workspace 'dist\icons') | Out-Null
-
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\fonts\Comfortaa') -Force | Out-Null
-        xcopy /e /i (Join-Path $workspace 'fonts\Comfortaa') (Join-Path $workspace 'dist\fonts\Comfortaa') | Out-Null
-
-        # Apps directories and files
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps') -Force | Out-Null
-
-        # Fallout 4 files
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Fallout 4') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Fallout 4\Bethini.json'
-        $dst = Join-Path $workspace 'dist\apps\Fallout 4\Bethini.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        $src = Join-Path $workspace 'apps\Fallout 4\settings.json'
-        $dst = Join-Path $workspace 'dist\apps\Fallout 4\settings.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        # Fallout New Vegas files
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Fallout New Vegas') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Fallout New Vegas\Bethini.json'
-        $dst = Join-Path $workspace 'dist\apps\Fallout New Vegas\Bethini.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        $src = Join-Path $workspace 'apps\Fallout New Vegas\settings.json'
-        $dst = Join-Path $workspace 'dist\apps\Fallout New Vegas\settings.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Fallout New Vegas\images') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Fallout New Vegas\images'
-        $dst = Join-Path $workspace 'dist\apps\Fallout New Vegas\images'
-        Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Recurse -Force (Join-Path $workspace 'dist\apps\Fallout New Vegas\images\src') -ErrorAction SilentlyContinue
-
-        # Skyrim Special Edition files
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Skyrim Special Edition') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Skyrim Special Edition\Bethini.json'
-        $dst = Join-Path $workspace 'dist\apps\Skyrim Special Edition\Bethini.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        $src = Join-Path $workspace 'apps\Skyrim Special Edition\settings.json'
-        $dst = Join-Path $workspace 'dist\apps\Skyrim Special Edition\settings.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Skyrim Special Edition\images') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Skyrim Special Edition\images'
-        $dst = Join-Path $workspace 'dist\apps\Skyrim Special Edition\images'
-        Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Recurse -Force (Join-Path $workspace 'dist\apps\Skyrim Special Edition\images\src') -ErrorAction SilentlyContinue
-
-        # Starfield files
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Starfield') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Starfield\Bethini.json'
-        $dst = Join-Path $workspace 'dist\apps\Starfield\Bethini.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        $src = Join-Path $workspace 'apps\Starfield\settings.json'
-        $dst = Join-Path $workspace 'dist\apps\Starfield\settings.json'
-        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction SilentlyContinue
-
-        New-Item -ItemType Directory -Path (Join-Path $workspace 'dist\apps\Starfield\images') -Force | Out-Null
-        $src = Join-Path $workspace 'apps\Starfield\images'
-        $dst = Join-Path $workspace 'dist\apps\Starfield\images'
-        Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Recurse -Force (Join-Path $workspace 'dist\apps\Starfield\images\src') -ErrorAction SilentlyContinue
-
-
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v4.6.1
-      with:
-        name: Bethini-windows
-        path: dist
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist
