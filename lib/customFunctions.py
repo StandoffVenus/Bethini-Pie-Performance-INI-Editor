@@ -5,7 +5,6 @@
 # or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 #
 
-import ctypes.wintypes
 import logging
 import os
 import sys
@@ -13,9 +12,15 @@ import re
 from pathlib import Path
 from tkinter import filedialog, simpledialog
 
-if os.name == "nt":
-    import winreg
-    from ctypes import windll, byref, c_int, sizeof
+from lib.platform_support import (
+    IS_WINDOWS,
+    detect_game_config_directory,
+    detect_game_install_directory,
+    ui_font,
+)
+
+if IS_WINDOWS:
+    from ctypes import byref, c_int, sizeof, windll
 
 if __name__ == "__main__":
     sys.exit(1)
@@ -34,8 +39,12 @@ def set_titlebar_style(window: tk.Misc) -> None:
     Args:
         window (tk.Misc): The window to apply the title bar style to.
     """
-    # Check if the windowing system is win32 (Windows) and the build version is 22000 or higher (Windows 11)
-    winsys = window.style.tk.call("tk", "windowingsystem")
+    if not IS_WINDOWS:
+        return
+    tk_interp = getattr(window, "tk", None)
+    if tk_interp is None:
+        return
+    winsys = str(tk_interp.call("tk", "windowingsystem"))
     if winsys == "win32" and sys.getwindowsversion().build >= 22000:
         window.update()  # Ensure the window is updated to get the correct window handle
         hwnd = windll.user32.GetParent(
@@ -60,7 +69,7 @@ def set_theme(style_object: ttk.Style, theme_name: str) -> None:
     """Set the application theme."""
 
     style_object.theme_use(theme_name)
-    style_object.configure("choose_game_button.TButton", font=("Segoe UI", 14))
+    style_object.configure("choose_game_button.TButton", font=ui_font(14))
     ModifyINI.app_config().assign_setting_value("General", "sTheme", theme_name)
 
 
@@ -274,25 +283,15 @@ class Info:
         game_config_directory = ModifyINI.app_config().get_value(
             "Directories", f"s{game_name}INIPath")
 
-        # If no saved location, use the Windows environment variable to find the location
-        if game_config_directory is None and os.name == "nt":
-            CSIDL_PERSONAL = 5  # My Documents
-            SHGFP_TYPE_CURRENT = 0  # Get current, not default value
-
-            buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-            ctypes.windll.shell32.SHGetFolderPathW(
-                None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf)
-
-            documents_directory = Path(buf.value)
-            logger.info(f"User documents location: {documents_directory}")
-
-            game_config_directory = (
-                documents_directory / "My Games" / Info.game_documents_name(game_name))
-
         if game_config_directory is not None:
             return Path(game_config_directory)
-        else:
-            return None
+
+        documents_folder_name = Info.game_documents_name(game_name)
+        detected = detect_game_config_directory(game_name, documents_folder_name)
+        if detected is not None:
+            logger.info(f"Detected {game_name} config directory: {detected}")
+            return detected
+        return None
 
     @staticmethod
     def game_documents_name(game_name: str) -> str:
@@ -319,6 +318,9 @@ class Info:
 
     @staticmethod
     def game_reg(game_name: str) -> str:
+        """Windows registry key name. Empty on Unix, where the registry is not used."""
+        if not IS_WINDOWS:
+            return ""
         game_name_registry_dict = {
             "Skyrim Special Edition": "Skyrim Special Edition",
             "Skyrim": "skyrim",
@@ -359,20 +361,10 @@ class CustomFunctions:
         game_folder = ModifyINI.app_config().get_value(
             "Directories", f"s{game_name}Path")
 
-        # If no saved location, check the registry
-        if game_folder is None and "winreg" in globals():
-            key_name = Info.game_reg(game_name)
-            try:
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, Rf"SOFTWARE\WOW6432Node\Bethesda Softworks\{key_name}") as reg_handle:
-                    value, value_type = winreg.QueryValueEx(
-                        reg_handle, "Installed Path")
-
-                if value and value_type == winreg.REG_SZ and isinstance(value, str):
-                    game_folder = value
-
-            except OSError:
-                logger.exception(
-                    f"Game path not found in the registry. Run the {game_name} launcher to set it.")
+        if game_folder is None:
+            game_folder = detect_game_install_directory(game_name)
+            if game_folder:
+                logger.info(f"Detected {game_name} install directory: {game_folder}")
 
         if game_folder is None:
             game_folder = ""
@@ -387,7 +379,11 @@ class CustomFunctions:
         game_documents_path = Info.get_game_config_directory(gameName)
         if game_documents_path is None:
             return ["", "Browse..."]
-        game_documents_path.mkdir(parents=True, exist_ok=True)
+        try:
+            if game_documents_path.exists() or game_documents_path.parent.exists():
+                game_documents_path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            logger.exception("Unable to create config directory %s", game_documents_path)
         # This code throws errors if the file doesn't exist. What is its purpose? Commenting out for now.
         # app = AppName(gameName)
         # ini_files = app.what_ini_files_are_used()

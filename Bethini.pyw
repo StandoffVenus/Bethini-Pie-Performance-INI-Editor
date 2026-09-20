@@ -20,7 +20,16 @@ from pathlib import Path
 from shutil import copyfile
 from typing import TYPE_CHECKING, Literal, cast
 from simpleeval import simple_eval  # type: ignore[reportUnknownVariableType]
-from stat import S_IWRITE, S_IREAD
+from lib.platform_support import (
+    application_directory,
+    clear_write_protect,
+    directory_mtime,
+    ensure_directory_suffix,
+    is_empty_directory_value,
+    resource_path,
+    restore_file_mode,
+    split_config_path,
+)
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
@@ -126,7 +135,7 @@ class bethini_app(ttk.Window):
     def __init__(self, themename: str) -> None:
         super().__init__(title=f"{my_app_name} {version}",
                          themename=themename,
-                         iconphoto="Icons/Icon.png",
+                         iconphoto=str(resource_path("icons", "Icon.png")),
                          minsize=(400, 200))
 
         parser = argparse.ArgumentParser()
@@ -676,11 +685,11 @@ class bethini_app(ttk.Window):
                             self.wait_window(change_read_only)
                             if change_read_only.result:
                                 try:
-                                    os.chmod(ini_object.ini_path, S_IWRITE)
+                                    previous_mode = clear_write_protect(ini_object.ini_path)
                                     ini_object.save_ini_file(sort=save_dialog.sort)
                                     file_saved = True
                                     files_saved = True
-                                    os.chmod(ini_object.ini_path, S_IREAD)
+                                    restore_file_mode(ini_object.ini_path, previous_mode)
                                 except PermissionError as e:
                                     logger.exception(f"{ini_object.ini_path} was still not able to be saved after clearing read-only flag.")
                             else:
@@ -1436,13 +1445,11 @@ class bethini_app(ttk.Window):
             else:
                 file_format = self.setting_dictionary[setting_name].get("fileFormat")
                 if file_format:
-                    this_value = os.path.split(setting_value[0])  # type: ignore[assignment]
+                    directory_part, file_part = split_config_path(setting_value[0])
                     if file_format == "directory":
-                        this_value = this_value[0]
-                        if this_value and this_value[-1] != "\\":
-                            this_value += "\\"
+                        this_value = ensure_directory_suffix(directory_part)
                     elif file_format == "file":
-                        this_value = this_value[1]
+                        this_value = file_part
                     self.setting_dictionary[setting_name]["tk_var"].set(this_value)  # type: ignore[reportArgumentType]
                 else:
                     setting_choices = self.setting_dictionary[setting_name].get("settingChoices")
@@ -1504,7 +1511,7 @@ class bethini_app(ttk.Window):
             else:
                 this_value = setting_value[0]
                 if file_format and file_format == "file":
-                    this_value = os.path.split(this_value)[1]
+                    this_value = split_config_path(this_value)[1]
 
             try:
                 self.setting_dictionary[setting_name]["tk_var"].set(this_value)  # type: ignore[reportArgumentType]
@@ -1797,7 +1804,7 @@ class bethini_app(ttk.Window):
                 if isinstance(theValue, list):
                     theValue = theValue[0]
             elif file_format:
-                if file_format == "directory" and this_value == "\\":
+                if file_format == "directory" and is_empty_directory_value(this_value):
                     this_value = this_value[:-1]
                 theValue = this_value
             else:
@@ -2412,7 +2419,7 @@ def remove_excess_directory_files(directory: Path, max_to_keep: int, files_to_re
     if len(subdirectories) <= max_to_keep:
         return
 
-    subdirectories.sort(key=os.path.getctime, reverse=True)
+    subdirectories.sort(key=directory_mtime, reverse=True)
     for index, dir_path in enumerate(subdirectories):
         if index < max_to_keep:
             logger.debug(f"{dir_path} will be kept.")
@@ -2440,10 +2447,7 @@ def remove_excess_directory_files(directory: Path, max_to_keep: int, files_to_re
 
 
 if __name__ == "__main__":
-    if getattr(sys, 'frozen', False):
-        exedir = Path(sys.executable).parent
-    else:
-        exedir = Path(__file__).parent
+    exedir = application_directory()
 
     # Configure Logging
     LOG_DIR_DATE: str = datetime.now().strftime("%Y %m-%b %d %a - %H.%M.%S")
@@ -2495,7 +2499,7 @@ if __name__ == "__main__":
 
     # Get version
     try:
-        with Path("changelog.txt").open(encoding="utf-8") as changelog:
+        with (exedir / "changelog.txt").open(encoding="utf-8") as changelog:
             version = changelog.readline().replace("\n", "")
     except FileNotFoundError:
         version = ""

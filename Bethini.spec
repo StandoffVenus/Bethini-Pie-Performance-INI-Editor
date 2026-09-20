@@ -1,26 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
 block_cipher = None
 
-#This function allows us to add files to directories that need to be included in 
-#the application's directory in order to function.
+# This function allows us to add files to directories that need to be included in
+# the application's directory in order to function.
 def recurseDirs(directory):
-    cwd = os.getcwd()
+    cwd = Path.cwd()
     data = []
     for thedir in directory:
-        root_dir = f'{cwd}\\{thedir}'
+        root_dir = cwd / thedir
         for dir_, _, files in os.walk(root_dir):
             for file_name in files:
                 rel_dir = os.path.relpath(dir_, root_dir)
                 rel_file = os.path.join(rel_dir, file_name)
-                data.append((f'{thedir}\\{rel_file}', f'{thedir}\\{rel_dir}'))
-	#We need to add the icon to the root folder as well.
-    data.append(('Icon.ico','.'))
+                data.append((os.path.join(thedir, rel_file), os.path.join(thedir, rel_dir)))
+    # We need to add the icon to the root folder as well.
+    data.append(('Icon.ico', '.'))
     return data
 
 
 a = Analysis(['Bethini.pyw'],
-             pathex=['S:\\Source\\Repos\\Bethini-Pie-Performance-INI-Editor'],
+             pathex=[],
              binaries=[],
              datas=recurseDirs(['apps', 'icons']),
              hiddenimports=[],
@@ -52,5 +54,3 @@ coll = COLLECT(exe,
                upx=True,
                upx_exclude=[],
                name='Bethini')
-               
-               
