@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
+import sys
 
 block_cipher = None
 
@@ -43,14 +44,14 @@ exe = EXE(pyz,
           debug=True,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=True,
+          upx=False,
           console=False,
-          icon='Icon.ico')
+          icon='Icon.ico' if sys.platform == 'win32' else None)
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
                strip=False,
-               upx=True,
+               upx=False,
                upx_exclude=[],
                name='Bethini')

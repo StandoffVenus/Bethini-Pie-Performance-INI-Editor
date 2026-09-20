@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
+import sys
 
+block_cipher = None
+# .ico is a Windows resource; Darwin/Linux builds stay unsigned without it.
+ICON = "Icon.ico" if sys.platform == "win32" else None
 
 a = Analysis(['Bethini.pyw'],
              pathex=[],
@@ -27,8 +30,9 @@ exe = EXE(pyz,
           debug=True,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=True,
+          upx=False,
           upx_exclude=[],
           runtime_tmpdir=None,
           console=False,
-          icon='Icon.ico')
+          icon=ICON)
+
