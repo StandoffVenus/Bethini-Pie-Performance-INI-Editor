@@ -1,7 +1,7 @@
 {
   lib,
   stdenvNoCC,
-  python3,
+  python312,
   makeWrapper,
   fetchurl,
   gnutar,
@@ -10,6 +10,7 @@
 }:
 
 let
+  python3 = python312;
   ttkbootstrap = python3.pkgs.callPackage ./ttkbootstrap.nix { };
 
   pythonEnv = python3.withPackages (

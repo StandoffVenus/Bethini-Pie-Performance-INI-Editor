@@ -266,7 +266,6 @@ class bethini_app(ttk.Window):
             else:
                 logger.info(message)
             self.statusbar_text.set(message)
-            self.update()
 
     @staticmethod
     def choose_color(button_to_modify: tk.Button, color_value_type: ColorType = "hex") -> ColorValue:
@@ -2513,5 +2512,8 @@ if __name__ == "__main__":
     window = bethini_app(themename=theme)
     window.pack_stuff()
     window.choose_game()
-    
-    window.mainloop()
+
+    try:
+        window.mainloop()
+    except KeyboardInterrupt:
+        pass

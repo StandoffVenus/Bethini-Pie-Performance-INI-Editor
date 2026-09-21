@@ -68,13 +68,18 @@ class ModifyINI:
         self.config = customConfigParser()
         if preserve_case:
             self.config.optionxform = lambda optionstr: optionstr
-        logger.info(f"Successfully read {self.config.read(self.ini_path, encoding='utf-8')}")
+        files_read = self.config.read(self.ini_path, encoding="utf-8")
 
         self.case_insensitive_config = customConfigParser()
-        logger.info(f"Successfully read {self.case_insensitive_config.read(self.ini_path, encoding='utf-8')} (case insensitive)")
+        self.case_insensitive_config.read(self.ini_path, encoding="utf-8")
 
         self.original_config = customConfigParser()
-        logger.info(f"Successfully read {self.original_config.read(self.ini_path, encoding='utf-8')} (read-only)")
+        self.original_config.read(self.ini_path, encoding="utf-8")
+
+        if files_read:
+            logger.debug(f"Read {self.ini_path}")
+        else:
+            logger.debug(f"No existing file at {self.ini_path}; using empty config")
 
         self.has_been_modified = False
         self.modifications: dict[str, dict[str, str]] = {}
