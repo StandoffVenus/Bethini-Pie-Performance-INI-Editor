@@ -38,6 +38,7 @@ class AppName:
         self.setting_type_dict = self.get_setting_type_dict()
         self.setting_notes_dict = self.get_setting_notes_dict()
         self.can_remove_dict = self.can_remove()
+        self._winning_ini_cache: dict[tuple[str, str, str], str] = {}
         self.preset_values_default = self.preset_values("default")
         self.preset_values_fixedDefault = self.preset_values("fixedDefault")
         self.preset_values_recommended = self.preset_values("recommended")
@@ -58,14 +59,21 @@ class AppName:
         # If Bethini.ini
         if ini == ModifyINI.app_config_name:
             return ini
+        cache_key = (ini, section.lower(), setting.lower())
+        cached = self._winning_ini_cache.get(cache_key)
+        if cached is not None:
+            return cached
         test_inis = self.bethini["INI_pecking_order"].get(ini)
         # If not a key in the INI_pecking_order
         if not test_inis:
+            self._winning_ini_cache[cache_key] = ini
             return ini
+        winning = ini
         for test_ini in reversed(test_inis):
             # If test_ini is ini, then ini is the winning ini
             if test_ini == ini:
-                return ini
+                winning = ini
+                break
             ini_location_setting = self.get_ini_setting_name(test_ini)
             if not ini_location_setting:
                 msg = f"Unknown INI: {test_ini}\nini_location_setting: {ini_location_setting}"
@@ -74,13 +82,18 @@ class AppName:
             ini_location = ModifyINI.app_config().get_value("Directories", ini_location_setting)
             # If no location exists, return the input ini
             if not ini_location:
-                return ini
+                winning = ini
+                break
             allow_sorting: bool = test_ini in self.bethini.get("Allow Sorted INIs", [])
             the_target_ini = ModifyINI.open(
                 name=test_ini, location=Path(ini_location), sortable=allow_sorting)
             if the_target_ini.case_insensitive_config.has_option(section, setting):
-                return test_ini
-        return ini
+                winning = test_ini
+                break
+        else:
+            winning = ini
+        self._winning_ini_cache[cache_key] = winning
+        return winning
 
     def get_main_ini_from_pecking_order(self, ini: str) -> str:
         """Returns the main ini file from the pecking order for the given ini file."""

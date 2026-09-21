@@ -2,6 +2,7 @@ v4.18
 Bethini Pie update notes:
 -Unix/macOS: avoid Windows registry lookups, case-insensitive path assumptions, and Windows-only APIs. Game and INI folders can be autodetected via Steam/Proton, Wine, or the native Documents directory. Logs and Bethini.ini use XDG directories when the install path is read-only (Nix/system packages).
 -Bugfix: INI parsing works on Python 3.13+ (configparser internals changed). Opening INI files no longer writes three info-level log lines per file.
+-Performance: defer window layout until tabs are built, parse each INI once, and avoid rebuilding the log view on every line.
 -CI: PyInstaller artifacts are produced for Linux, Darwin, and Windows.
 -Packaging: Nix flake, overlay, and nixpkgs-style derivation (`nix/package.nix`).
 

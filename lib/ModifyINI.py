@@ -71,10 +71,10 @@ class ModifyINI:
         files_read = self.config.read(self.ini_path, encoding="utf-8")
 
         self.case_insensitive_config = customConfigParser()
-        self.case_insensitive_config.read(self.ini_path, encoding="utf-8")
+        self.case_insensitive_config.read_dict(self.config)
 
         self.original_config = customConfigParser()
-        self.original_config.read(self.ini_path, encoding="utf-8")
+        self.original_config.read_dict(self.config)
 
         if files_read:
             logger.debug(f"Read {self.ini_path}")
