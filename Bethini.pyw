@@ -217,6 +217,7 @@ class bethini_app(ttk.Window):
         self.p = ttk.Progressbar(self.hsbframeholder, orient=HORIZONTAL, mode=INDETERMINATE)
 
         self.menu_frame = MenuBar(self)
+        self._suspend_layout = True
 
     def pack_stuff(self) -> None:
         self.hsbframeholder.pack(anchor=SW, side=BOTTOM, fill=X)
@@ -230,22 +231,28 @@ class bethini_app(ttk.Window):
         self.statusbar.pack(anchor=NW, side=TOP, fill=X)
 
     def on_frame_configure(self, _event: "tk.Event[ttk.Frame]") -> None:
+        if self._suspend_layout:
+            return
         self.the_canvas.configure(scrollregion=self.the_canvas.bbox("all"))
 
     def sub_container_configure(self, event: "tk.Event[ttk.Notebook]") -> None:
-        the_width = event.width
-        the_height = event.height
+        if self._suspend_layout:
+            return
+        self._fit_window_to_notebook(event.width, event.height)
 
-        # Get the height of the menubar
+    def _fit_window_to_notebook(self, notebook_width: int | None = None, notebook_height: int | None = None) -> None:
+        the_width = notebook_width if notebook_width is not None else self.sub_container.winfo_width()
+        the_height = notebook_height if notebook_height is not None else self.sub_container.winfo_height()
         menubar_height = self.menu_frame.winfo_height()
-
-        # Get the height of the hsbframeholder frame
         hsbframeholder_height = self.hsbframeholder.winfo_height()
-
-        # Add the menubar height and sub_container tabs height to the_height
         total_height = the_height + menubar_height + hsbframeholder_height
-
         self.geometry(f"{the_width}x{total_height}")
+
+    def _resume_layout(self) -> None:
+        self._suspend_layout = False
+        self.update_idletasks()
+        self.the_canvas.configure(scrollregion=self.the_canvas.bbox("all"))
+        self._fit_window_to_notebook()
 
     def start_progress(self) -> None:
         self.pw.pack(side=LEFT, anchor=S)
@@ -513,6 +520,7 @@ class bethini_app(ttk.Window):
                     tk_frame.destroy()
         
         try:
+            self._log_lines_shown = 0
             log_list.remove_observer(self.update_log_text)
             self.log_tab.destroy()
             self.advanced_tab.destroy()
@@ -1960,6 +1968,7 @@ class bethini_app(ttk.Window):
                     self.sme(f"{winning_ini} [{targetSections[n]}] {theSettings[n]}={this_value}")
 
     def createTabs(self, *, from_choose_game_window: bool = False) -> None:
+        self._suspend_layout = True
         self.start_progress()
         global PREVIEW_WINDOW
         PREVIEW_WINDOW = ttk.Toplevel("Preview")
@@ -2090,7 +2099,6 @@ class bethini_app(ttk.Window):
         )
         self.log_text = ScrolledText(self.log_tab, padding=5)
         self.log_text.pack(fill=tk.BOTH, expand=YES)
-        log_list.add_observer(self.update_log_text)
 
         self.stop_progress()
         if not from_choose_game_window:
@@ -2099,6 +2107,9 @@ class bethini_app(ttk.Window):
         self.bindTkVars()
 
         self.sub_container.pack(fill=tk.BOTH, expand=True)
+        log_list.add_observer(self.update_log_text)
+        self.update_log_text()
+        self._resume_layout()
         self.stop_progress()
         self.sme("Loading complete.")
 
@@ -2235,9 +2246,13 @@ class bethini_app(ttk.Window):
 
     def update_log_text(self) -> None:
         try:
-            self.log_text.delete(1.0, tk.END)
-            self.log_text.insert(tk.END, "\n".join(log_list) + '\n')
-            self.log_text.see(tk.END)
+            shown = getattr(self, "_log_lines_shown", 0)
+            if shown == 0:
+                self.log_text.delete(1.0, tk.END)
+            if shown < len(log_list):
+                self.log_text.insert(tk.END, "\n".join(log_list[shown:]) + "\n")
+                self._log_lines_shown = len(log_list)
+                self.log_text.see(tk.END)
         except tk.TclError:
             logger.debug("Log tab currently unavailable.")
 
