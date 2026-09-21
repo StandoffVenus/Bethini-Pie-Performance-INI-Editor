@@ -9,7 +9,6 @@
 buildPythonPackage rec {
   pname = "ttkbootstrap";
   version = "1.10.1";
-  pyproject = false;
   format = "setuptools";
 
   # Bethini tracks DoubleYouC's fork rather than PyPI.
