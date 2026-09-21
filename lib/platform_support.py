@@ -60,10 +60,54 @@ _LIBRARYFOLDERS_PATH_RE = re.compile(r'"path"\s+"([^"]+)"')
 
 
 def application_directory() -> Path:
-    """Directory that contains Bethini.pyw / the frozen executable."""
+    """Read-only install directory that contains Bethini.pyw / the frozen executable."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
+
+
+def directory_is_writable(path: Path) -> bool:
+    """Return whether *path* exists and the current user can create files there."""
+    try:
+        if not path.exists() or not path.is_dir():
+            return False
+        return os.access(path, os.W_OK | os.X_OK)
+    except OSError:
+        return False
+
+
+def _xdg_directory(env_var: str, default_subpath: Path) -> Path:
+    configured = os.environ.get(env_var)
+    if configured:
+        return Path(configured).expanduser() / "bethini-pie"
+    return Path.home() / default_subpath / "bethini-pie"
+
+
+def user_config_directory() -> Path:
+    """Writable directory for Bethini.ini.
+
+    Portable installs keep config next to the app. Read-only installs (Nix,
+    system packages) use XDG on Unix and %APPDATA% on Windows.
+    """
+    app_dir = application_directory()
+    if directory_is_writable(app_dir):
+        return app_dir
+    if IS_WINDOWS:
+        roaming = os.environ.get("APPDATA")
+        if roaming:
+            return Path(roaming) / "Bethini Pie"
+        return Path.home() / "AppData" / "Roaming" / "Bethini Pie"
+    return _xdg_directory("XDG_CONFIG_HOME", Path(".config"))
+
+
+def user_state_directory() -> Path:
+    """Writable directory for logs and other runtime state."""
+    app_dir = application_directory()
+    if directory_is_writable(app_dir):
+        return app_dir
+    if IS_WINDOWS:
+        return user_config_directory()
+    return _xdg_directory("XDG_STATE_HOME", Path(".local") / "state")
 
 
 def resource_path(*parts: str) -> Path:

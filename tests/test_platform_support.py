@@ -111,6 +111,36 @@ class UnixDetectionTests(unittest.TestCase):
             self.assertEqual(found, docs)
 
 
+class UserDirectoryTests(unittest.TestCase):
+    def test_writable_install_keeps_portable_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app_dir = Path(tmp) / "app"
+            app_dir.mkdir()
+            with mock.patch.object(ps, "application_directory", return_value=app_dir):
+                self.assertEqual(ps.user_config_directory(), app_dir)
+                self.assertEqual(ps.user_state_directory(), app_dir)
+
+    def test_read_only_install_uses_xdg_on_unix(self):
+        if os.name == "nt":
+            self.skipTest("XDG paths are for Unix")
+        with tempfile.TemporaryDirectory() as tmp:
+            app_dir = Path(tmp) / "store"
+            app_dir.mkdir()
+            os.chmod(app_dir, 0o555)
+            config_home = Path(tmp) / "config"
+            state_home = Path(tmp) / "state"
+            try:
+                with mock.patch.object(ps, "application_directory", return_value=app_dir), \
+                        mock.patch.dict(os.environ, {
+                            "XDG_CONFIG_HOME": str(config_home),
+                            "XDG_STATE_HOME": str(state_home),
+                        }, clear=False):
+                    self.assertEqual(ps.user_config_directory(), config_home / "bethini-pie")
+                    self.assertEqual(ps.user_state_directory(), state_home / "bethini-pie")
+            finally:
+                os.chmod(app_dir, 0o755)
+
+
 class ResourcePathTests(unittest.TestCase):
     def test_icon_resource_uses_icons_directory_case(self):
         icon = ps.resource_path("icons", "Icon.png")
