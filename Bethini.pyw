@@ -29,6 +29,8 @@ from lib.platform_support import (
     resource_path,
     restore_file_mode,
     split_config_path,
+    user_config_directory,
+    user_state_directory,
 )
 
 import ttkbootstrap as ttk
@@ -2319,7 +2321,7 @@ class bethini_app(ttk.Window):
 
     def getINILocation(self, ini_name: ININame) -> str | Literal[""]:
         if ini_name == ModifyINI.app_config_name:
-            return str(exedir)
+            return str(user_config_directory())
         ini_setting_name = self.app.get_ini_setting_name(ini_name)
         if not ini_setting_name:
             msg = f"Unknown INI: {ini_name}"
@@ -2448,10 +2450,14 @@ def remove_excess_directory_files(directory: Path, max_to_keep: int, files_to_re
 
 if __name__ == "__main__":
     exedir = application_directory()
+    config_dir = user_config_directory()
+    state_dir = user_state_directory()
+    config_dir.mkdir(parents=True, exist_ok=True)
+    state_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure Logging
     LOG_DIR_DATE: str = datetime.now().strftime("%Y %m-%b %d %a - %H.%M.%S")
-    APP_LOG_DIR = exedir / "logs" / LOG_DIR_DATE
+    APP_LOG_DIR = state_dir / "logs" / LOG_DIR_DATE
     APP_LOG_DIR.mkdir(parents=True, exist_ok=True)
     APP_LOG_FILE = APP_LOG_DIR / "log.log"
 
@@ -2495,7 +2501,7 @@ if __name__ == "__main__":
     ModifyINI.app_config().assign_setting_value("General", "sTheme", theme)
 
     # Remove excess log files.
-    remove_excess_directory_files(exedir / "logs", int(iMaxLogs), [APP_LOG_FILE.name])
+    remove_excess_directory_files(state_dir / "logs", int(iMaxLogs), [APP_LOG_FILE.name])
 
     # Get version
     try:
