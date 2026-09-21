@@ -1,9 +1,12 @@
 """Custom configparser."""
 
+from __future__ import annotations
+
 import configparser
+import inspect
 import sys
 from io import TextIOWrapper
-from typing import cast
+from typing import Any, cast
 
 if __name__ == "__main__":
     sys.exit(1)
@@ -15,8 +18,30 @@ class customConfigParser(configparser.RawConfigParser):
     """
 
     def __init__(self) -> None:
-        super().__init__(allow_no_value=True, delimiters=("=",), comment_prefixes=(), strict=False)
+        kwargs: dict[str, Any] = {
+            "allow_no_value": True,
+            "delimiters": ("=",),
+            "comment_prefixes": (),
+            "strict": False,
+        }
         # comment_prefixes=() is necessary to preserve comments.
+        # Python 3.13+ can parse values before the first section.
+        if "allow_unnamed_section" in inspect.signature(configparser.RawConfigParser.__init__).parameters:
+            kwargs["allow_unnamed_section"] = True
+        super().__init__(**kwargs)
+
+    def _handle_option(self, st: Any, line: Any, fpname: str) -> None:
+        """Keep the first value when a setting is duplicated (Python 3.13+ parser)."""
+        mo = self._optcre.match(line.clean)
+        if mo:
+            optname = mo.group("option")
+            if optname:
+                optname = self.optionxform(optname.rstrip())
+                if st.cursect is not None and optname in st.cursect:
+                    st.optname = optname
+                    st.elements_added.add((st.sectname, optname))
+                    return
+        super()._handle_option(st, line, fpname)
 
     def _read(self, fp: TextIOWrapper, fpname: str) -> None:
         """Parse a sectioned configuration file.
@@ -36,6 +61,10 @@ class customConfigParser(configparser.RawConfigParser):
         section names.
         """
 
+        # Python 3.13+ uses _comments / _read_inner instead of the old private attrs.
+        if hasattr(self, "_comments"):
+            return super()._read(fp, fpname)
+
         # This read function was modified to pick the first option value if there is a
         # duplicate option. Any subsequent duplicate option values are discarded.
         elements_added: set[str | tuple[str, str]] = set()
@@ -44,10 +73,12 @@ class customConfigParser(configparser.RawConfigParser):
         optname = None
         indent_level = 0
         e: configparser.Error | None = None
+        inline_comment_prefixes = getattr(self, "_inline_comment_prefixes", ()) or ()
+        comment_prefixes = getattr(self, "_comment_prefixes", ()) or ()
         for lineno, line in enumerate(fp, start=1):
             comment_start: int | None = sys.maxsize
             # Strip inline comments
-            inline_prefixes = dict.fromkeys(self._inline_comment_prefixes, -1)
+            inline_prefixes = dict.fromkeys(inline_comment_prefixes, -1)
             while comment_start == sys.maxsize and inline_prefixes:
                 next_prefixes = {}
                 for prefix, index in inline_prefixes.items():
@@ -59,7 +90,7 @@ class customConfigParser(configparser.RawConfigParser):
                         comment_start = min(comment_start, line_index)
                 inline_prefixes = next_prefixes
             # Strip full line comments
-            for prefix in self._comment_prefixes:
+            for prefix in comment_prefixes:
                 if line.strip().startswith(prefix):
                     comment_start = 0
                     break
@@ -126,7 +157,7 @@ class customConfigParser(configparser.RawConfigParser):
                             raise configparser.DuplicateOptionError(sectname, optname, fpname, lineno)
                         elements_added.add((sectname, optname))
                         # This check is fine because the OPTCRE cannot
-                        # match if it would set optval to None.
+                        # match if it would set optname to None.
                         if optval is not None:
                             optval = optval.strip()
                             # Check if this optname already exists
